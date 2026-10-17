@@ -124,6 +124,11 @@ export default function App() {
     triggerToast(`เลือกพิกัด [${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}] สำเร็จ`, 'info');
   };
 
+  const handleUpdatePointCoordinate = (pointId: string, newCoords: { lat: number; lng: number }) => {
+    setRiskPoints(prev => prev.map(p => p.id === pointId ? { ...p, lat: newCoords.lat, lng: newCoords.lng } : p));
+    triggerToast(`ปรับตำแหน่งพิกัดใหม่สำเร็จ [${newCoords.lat.toFixed(5)}, ${newCoords.lng.toFixed(5)}]`, 'success');
+  };
+
   const pendingReportsCount = citizenReports.filter(r => r.status === 'pending').length;
 
   // Filter stats
@@ -271,6 +276,7 @@ export default function App() {
             activeWaterLevel={activeWaterLevel}
             isPickingLocation={isPickingLocation}
             onPickCoordinate={handlePickCoordinateOnMap}
+            onUpdatePointCoordinate={handleUpdatePointCoordinate}
           />
         </section>
 

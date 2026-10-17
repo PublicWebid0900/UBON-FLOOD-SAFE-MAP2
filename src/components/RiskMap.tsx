@@ -4,7 +4,7 @@ import { RiskPoint, SurveillanceZone, RiskPinCategory, RiskLevel } from '../type
 import { 
   Zap, AlertTriangle, Shield, Heart, Home, Phone, 
   MapPin, Clock, Calendar, CheckCircle, Navigation,
-  Layers, Eye, ExternalLink, X
+  Layers, Eye, ExternalLink, X, Globe, Map
 } from 'lucide-react';
 
 interface RiskMapProps {
@@ -13,6 +13,7 @@ interface RiskMapProps {
   activeWaterLevel: number;
   onSelectPoint?: (point: RiskPoint) => void;
   onPickCoordinate?: (coords: { lat: number; lng: number }) => void;
+  onUpdatePointCoordinate?: (pointId: string, newCoords: { lat: number; lng: number }) => void;
   isPickingLocation?: boolean;
 }
 
@@ -22,10 +23,13 @@ export const RiskMap: React.FC<RiskMapProps> = ({
   activeWaterLevel,
   onSelectPoint,
   onPickCoordinate,
+  onUpdatePointCoordinate,
   isPickingLocation = false
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const streetTileLayerRef = useRef<L.TileLayer | null>(null);
+  const satelliteTileLayerRef = useRef<L.TileLayer | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const zonesLayerRef = useRef<L.LayerGroup | null>(null);
 
@@ -33,25 +37,37 @@ export const RiskMap: React.FC<RiskMapProps> = ({
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
   const [activeRiskFilter, setActiveRiskFilter] = useState<string>('all');
   const [showSurveillanceZones, setShowSurveillanceZones] = useState<boolean>(true);
+  const [mapLayerType, setMapLayerType] = useState<'street' | 'satellite'>('street');
+  const [isAdjustingCoord, setIsAdjustingCoord] = useState(false);
 
   // Initialize Map
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-    // Center on Hat Suan Ya community (15.1925, 104.8645)
+    // Center on Hat Suan Ya community along Mun River (15.2215, 104.8610)
     const map = L.map(mapContainerRef.current, {
-      center: [15.1928, 104.8645],
-      zoom: 16,
+      center: [15.2215, 104.8610],
+      zoom: 16.5,
       zoomControl: false,
     });
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    // OpenStreetMap Standard Tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // 1. Street Map Tiles (OpenStreetMap)
+    const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors | UBON FLOOD SAFE MAP',
       maxZoom: 19,
-    }).addTo(map);
+    });
+
+    // 2. High-Resolution Satellite Tiles (Esri World Imagery)
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics | UBON FLOOD SAFE MAP',
+      maxZoom: 19,
+    });
+
+    streetLayer.addTo(map);
+    streetTileLayerRef.current = streetLayer;
+    satelliteTileLayerRef.current = satelliteLayer;
 
     // Marker Layer Group
     const markersLayer = L.layerGroup().addTo(map);
@@ -61,10 +77,14 @@ export const RiskMap: React.FC<RiskMapProps> = ({
     const zonesLayer = L.layerGroup().addTo(map);
     zonesLayerRef.current = zonesLayer;
 
-    // Handle map click for reporting
+    // Handle map click for reporting or coordinate fine-tuning
     map.on('click', (e: L.LeafletMouseEvent) => {
       if (isPickingLocation && onPickCoordinate) {
         onPickCoordinate({ lat: e.latlng.lat, lng: e.latlng.lng });
+      } else if (isAdjustingCoord && selectedPoint && onUpdatePointCoordinate) {
+        onUpdatePointCoordinate(selectedPoint.id, { lat: e.latlng.lat, lng: e.latlng.lng });
+        setSelectedPoint(prev => prev ? { ...prev, lat: e.latlng.lat, lng: e.latlng.lng } : null);
+        setIsAdjustingCoord(false);
       }
     });
 
@@ -74,14 +94,27 @@ export const RiskMap: React.FC<RiskMapProps> = ({
       map.remove();
       mapInstanceRef.current = null;
     };
-  }, [isPickingLocation, onPickCoordinate]);
+  }, [isPickingLocation, isAdjustingCoord, selectedPoint, onPickCoordinate, onUpdatePointCoordinate]);
+
+  // Toggle Map Tiles (Street vs Satellite)
+  const toggleMapLayer = (type: 'street' | 'satellite') => {
+    if (!mapInstanceRef.current) return;
+    setMapLayerType(type);
+    if (type === 'satellite') {
+      if (streetTileLayerRef.current) mapInstanceRef.current.removeLayer(streetTileLayerRef.current);
+      if (satelliteTileLayerRef.current) satelliteTileLayerRef.current.addTo(mapInstanceRef.current);
+    } else {
+      if (satelliteTileLayerRef.current) mapInstanceRef.current.removeLayer(satelliteTileLayerRef.current);
+      if (streetTileLayerRef.current) streetTileLayerRef.current.addTo(mapInstanceRef.current);
+    }
+  };
 
   // Color generator adhering to the official 8 color codes from PDF page 4
   const getMarkerPinConfig = (category: RiskPinCategory, isTriggeredByWater: boolean) => {
     switch (category) {
       case 'bedridden': // สีน้ำเงิน คือ จุดผู้ป่วยติดเตียง
         return {
-          bgColor: '#2563eb', // Blue
+          bgColor: '#2563eb',
           textColor: '#ffffff',
           symbol: '🛌',
           label: 'ผู้ป่วยติดเตียง',
@@ -89,7 +122,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         };
       case 'flood_zone': // สีแดง คือ จุดโซนน้ำท่วมก่อน (จุดอันตรายรถห้ามผ่าน)
         return {
-          bgColor: '#dc2626', // Red
+          bgColor: '#dc2626',
           textColor: '#ffffff',
           symbol: '⛔',
           label: 'จุดน้ำท่วมก่อน (รถห้ามผ่าน)',
@@ -97,7 +130,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         };
       case 'pu_ta_shrine': // สีม่วง คือ ศาลปู่ตา
         return {
-          bgColor: '#9333ea', // Purple
+          bgColor: '#9333ea',
           textColor: '#ffffff',
           symbol: '⛩️',
           label: 'ศาลปู่ตา',
@@ -105,7 +138,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         };
       case 'community_hall': // สีชมพู คือ ศาลาชุมชน
         return {
-          bgColor: '#db2777', // Pink
+          bgColor: '#db2777',
           textColor: '#ffffff',
           symbol: '📢',
           label: 'ศาลาชุมชน',
@@ -113,7 +146,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         };
       case 'elderly': // สีส้ม คือ จุดมีผู้สูงอายุ
         return {
-          bgColor: '#ea580c', // Orange
+          bgColor: '#ea580c',
           textColor: '#ffffff',
           symbol: '👴',
           label: 'ผู้สูงอายุ',
@@ -121,7 +154,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         };
       case 'disabled': // สีเขียว คือ จุดมีผู้พิการ
         return {
-          bgColor: '#16a34a', // Green
+          bgColor: '#16a34a',
           textColor: '#ffffff',
           symbol: '♿',
           label: 'ผู้พิการ',
@@ -129,7 +162,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         };
       case 'children': // สีเขียวอ่อน คือ จุดมีเด็ก
         return {
-          bgColor: '#84cc16', // Light Green / Lime
+          bgColor: '#84cc16',
           textColor: '#1f2937',
           symbol: '👶',
           label: 'จุดมีเด็กเล็ก',
@@ -137,7 +170,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         };
       case 'electric_hazard': // สีฟ้า คือ จุดที่เคยมีไฟรั่ว
         return {
-          bgColor: '#0284c7', // Sky Blue / Cyan
+          bgColor: '#0284c7',
           textColor: '#ffffff',
           symbol: '⚡',
           label: 'เสี่ยงไฟฟ้ารั่ว',
@@ -145,7 +178,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         };
       case 'shelter': // จุดพักพิงและจุดช่วยเหลือ
         return {
-          bgColor: '#0d9488', // Teal
+          bgColor: '#0d9488',
           textColor: '#ffffff',
           symbol: '⛺',
           label: 'ศูนย์พักพิง',
@@ -153,7 +186,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         };
       case 'authority': // จุดประสานงานเจ้าหน้าที่
         return {
-          bgColor: '#4f46e5', // Indigo
+          bgColor: '#4f46e5',
           textColor: '#ffffff',
           symbol: '🛡️',
           label: 'จุดประสานงาน',
@@ -161,7 +194,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         };
       case 'road_closure': // จุดถนนที่ควรหลีกเลี่ยง
         return {
-          bgColor: '#b91c1c', // Dark Red
+          bgColor: '#b91c1c',
           textColor: '#ffffff',
           symbol: '🚧',
           label: 'ถนนควรหลีกเลี่ยง',
@@ -228,18 +261,22 @@ export const RiskMap: React.FC<RiskMapProps> = ({
       const isWaterTriggered = Boolean(point.minWaterLevelTrigger && activeWaterLevel >= point.minWaterLevelTrigger);
       const config = getMarkerPinConfig(point.category, isWaterTriggered);
 
-      // Create Custom HTML Pin
+      // Create Custom High-Precision Teardrop Needle Pin (Points directly to exact spot)
       const customIcon = L.divIcon({
         className: 'custom-leaflet-marker',
         html: `
-          <div class="custom-pin ${config.pulse ? 'custom-pin-pulse' : ''}" 
-               style="background-color: ${config.bgColor}; color: ${config.textColor}; width: 34px; height: 34px; font-size: 15px;">
-            <span>${config.symbol}</span>
+          <div class="precise-pin-container">
+            <div class="precise-pin-head ${config.pulse ? 'precise-pin-pulse' : ''}" 
+                 style="background-color: ${config.bgColor}; color: ${config.textColor};">
+              <span>${config.symbol}</span>
+            </div>
+            <div class="precise-pin-needle" style="border-top: 10px solid ${config.bgColor};"></div>
+            <div class="precise-pin-dot"></div>
           </div>
         `,
-        iconSize: [34, 34],
-        iconAnchor: [17, 17],
-        popupAnchor: [0, -20]
+        iconSize: [36, 44],
+        iconAnchor: [18, 44], // Bottom pinpoint touches exact target coordinate!
+        popupAnchor: [0, -42]
       });
 
       const marker = L.marker([point.lat, point.lng], { icon: customIcon });
@@ -253,8 +290,9 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         <div class="text-xs font-sans">
           <div class="font-bold text-slate-900">${point.name}</div>
           <div class="text-slate-500">${point.categoryLabel}</div>
+          <div class="text-[10px] text-slate-400 font-mono">📍 ${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}</div>
         </div>
-      `, { direction: 'top', offset: [0, -18] });
+      `, { direction: 'top', offset: [0, -40] });
 
       markersLayerRef.current?.addLayer(marker);
     });
@@ -262,11 +300,11 @@ export const RiskMap: React.FC<RiskMapProps> = ({
   }, [riskPoints, surveillanceZones, activeCategoryFilter, activeRiskFilter, showSurveillanceZones, activeWaterLevel, onSelectPoint]);
 
   const handleFlyTo = (lat: number, lng: number) => {
-    mapInstanceRef.current?.flyTo([lat, lng], 17, { duration: 1.2 });
+    mapInstanceRef.current?.flyTo([lat, lng], 18, { duration: 1.2 });
   };
 
   const handleResetView = () => {
-    mapInstanceRef.current?.flyTo([15.1928, 104.8645], 16, { duration: 1.0 });
+    mapInstanceRef.current?.flyTo([15.2215, 104.8610], 16.5, { duration: 1.0 });
   };
 
   return (
@@ -274,11 +312,25 @@ export const RiskMap: React.FC<RiskMapProps> = ({
       {/* Map DOM Container */}
       <div ref={mapContainerRef} className="w-full h-full" />
 
-      {/* Picking Location Banner (if active) */}
+      {/* Picking Location Banner */}
       {isPickingLocation && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-amber-600 text-white px-4 py-2 rounded-lg shadow-md text-xs sm:text-sm font-medium flex items-center gap-2 animate-bounce">
           <MapPin className="w-4 h-4" />
-          <span>คลิกบนแผนที่เพื่อระบุตำแหน่งจุดเสี่ยงที่ต้องการแจ้ง</span>
+          <span>คลิกบนแผนที่เพื่อระบุตำแหน่งที่แน่นอนของจุดเสี่ยง</span>
+        </div>
+      )}
+
+      {/* Adjusting Existing Pin Coordinate Banner */}
+      {isAdjustingCoord && selectedPoint && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md text-xs sm:text-sm font-medium flex items-center gap-2 animate-pulse">
+          <MapPin className="w-4 h-4" />
+          <span>คลิกจุดใหม่บนแผนที่เพื่อปรับตำแหน่ง: "{selectedPoint.name}"</span>
+          <button 
+            onClick={() => setIsAdjustingCoord(false)}
+            className="ml-2 px-2 py-0.5 bg-white/20 rounded hover:bg-white/30 text-xs"
+          >
+            ยกเลิก
+          </button>
         </div>
       )}
 
@@ -308,8 +360,34 @@ export const RiskMap: React.FC<RiskMapProps> = ({
           ))}
         </div>
 
-        {/* Right: Map Utility Actions */}
+        {/* Right: Map Layer Switcher & Utility Actions */}
         <div className="pointer-events-auto flex items-center gap-2">
+          {/* Map Layer Switcher (Street vs Satellite) */}
+          <div className="bg-white/95 backdrop-blur-sm border border-slate-200 rounded-lg p-0.5 shadow-xs flex items-center">
+            <button
+              onClick={() => toggleMapLayer('street')}
+              className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-colors cursor-pointer ${
+                mapLayerType === 'street'
+                  ? 'bg-slate-900 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Map className="w-3.5 h-3.5" />
+              <span>แผนที่ถนน</span>
+            </button>
+            <button
+              onClick={() => toggleMapLayer('satellite')}
+              className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-colors cursor-pointer ${
+                mapLayerType === 'satellite'
+                  ? 'bg-blue-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>ดาวเทียม</span>
+            </button>
+          </div>
+
           <button
             onClick={() => setShowSurveillanceZones(!showSurveillanceZones)}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg border shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
@@ -319,7 +397,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>โซนเฝ้าระวัง (A/B/C)</span>
+            <span className="hidden sm:inline">โซนเฝ้าระวัง (A/B/C)</span>
           </button>
 
           <button
@@ -335,7 +413,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
       <div className="absolute bottom-6 left-4 z-10 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-lg p-3 shadow-md max-w-xs sm:max-w-sm hidden sm:block">
         <div className="text-xs font-bold text-slate-900 mb-2 flex items-center justify-between">
           <span>สัญลักษณ์ระบุจุดเสี่ยงชุมชน (8 สีมาตรฐาน)</span>
-          <span className="text-[10px] text-slate-500 font-normal">หาดสวนยา</span>
+          <span className="text-[10px] text-slate-500 font-normal">หาดสวนยา ริมแม่น้ำมูล</span>
         </div>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-slate-700">
           <div className="flex items-center gap-1.5">
@@ -389,6 +467,9 @@ export const RiskMap: React.FC<RiskMapProps> = ({
               <h3 className="text-base font-bold text-slate-900 leading-snug">
                 {selectedPoint.name}
               </h3>
+              <div className="text-[11px] text-blue-600 font-mono mt-0.5">
+                พิกัด GPS: {selectedPoint.lat.toFixed(5)}° N, {selectedPoint.lng.toFixed(5)}° E
+              </div>
             </div>
             <button
               onClick={() => setSelectedPoint(null)}
@@ -415,7 +496,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
 
           {/* Card Body */}
           <div className="p-4 space-y-3 text-xs max-h-[380px] overflow-y-auto">
-            {/* Electrical hazard mandatory warning banner (from document Page 5) */}
+            {/* Electrical hazard mandatory warning banner */}
             {selectedPoint.category === 'electric_hazard' && selectedPoint.warning && (
               <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-900">
                 <div className="font-bold flex items-center gap-1.5 mb-1 text-amber-800">
@@ -502,19 +583,24 @@ export const RiskMap: React.FC<RiskMapProps> = ({
             </div>
           </div>
 
-          {/* Action button */}
+          {/* Action buttons */}
           <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
             <button
               onClick={() => handleFlyTo(selectedPoint.lat, selectedPoint.lng)}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
             >
               <Navigation className="w-3.5 h-3.5" />
-              โฟกัสจุดนี้
+              ซูมเจาะจงจุดนี้
             </button>
-            <div className="text-[11px] text-emerald-700 flex items-center gap-1 font-medium">
-              <CheckCircle className="w-3.5 h-3.5" />
-              <span>ยืนยันข้อมูลแล้ว</span>
-            </div>
+
+            <button
+              onClick={() => setIsAdjustingCoord(true)}
+              className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+              title="คลิกเพื่อย้ายพิกัดนี้บนแผนที่ให้ตรงจุดยิ่งขึ้น"
+            >
+              <MapPin className="w-3.5 h-3.5 text-amber-600" />
+              <span>ปรับพิกัด</span>
+            </button>
           </div>
         </div>
       )}
