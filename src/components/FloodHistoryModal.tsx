@@ -1,5 +1,6 @@
 import React from 'react';
 import { History, X, AlertTriangle, Calendar, ExternalLink, ShieldCheck } from 'lucide-react';
+import { droneImg, rescueImg, electricImg } from '../assets/images';
 
 interface FloodHistoryModalProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export const FloodHistoryModal: React.FC<FloodHistoryModalProps> = ({ isOpen, on
           <div className="space-y-3">
             <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm relative group">
               <img 
-                src="/src/assets/images/ubon_flood_hatsuanya_drone_1792241312972.jpg" 
+                src={droneImg} 
                 alt="ภาพถ่ายทางอากาศน้ำท่วมชุมชนหาดสวนยา ปี 2562 และสะพานเสรีประชาธิปไตย"
                 referrerPolicy="no-referrer"
                 className="w-full h-72 sm:h-80 object-cover"
@@ -52,7 +53,7 @@ export const FloodHistoryModal: React.FC<FloodHistoryModalProps> = ({ isOpen, on
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="rounded-xl overflow-hidden border border-slate-200 relative">
                 <img 
-                  src="/src/assets/images/ubon_flood_rescue_operations_1792241313877.jpg" 
+                  src={rescueImg} 
                   alt="เรือกู้ภัยส่งเสบียงหาดสวนยา"
                   referrerPolicy="no-referrer"
                   className="w-full h-44 object-cover"
@@ -65,7 +66,7 @@ export const FloodHistoryModal: React.FC<FloodHistoryModalProps> = ({ isOpen, on
 
               <div className="rounded-xl overflow-hidden border border-slate-200 relative">
                 <img 
-                  src="/src/assets/images/ubon_flood_electrical_safety_1792241315162.jpg" 
+                  src={electricImg} 
                   alt="การตรวจสอบระบบไฟฟ้าช่วงน้ำท่วม"
                   referrerPolicy="no-referrer"
                   className="w-full h-44 object-cover"

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { HazardReport, RiskPinCategory, RiskLevel } from '../types';
+import { droneImg, rescueImg, electricImg } from '../assets/images';
 import { 
   AlertTriangle, Zap, Waves, ShieldAlert, CheckCircle2, 
   MapPin, Camera, X, ArrowRight, User, Phone, Check, Clock
@@ -282,9 +283,9 @@ export const ReportHazardModal: React.FC<ReportHazardModalProps> = ({
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { url: '/src/assets/images/ubon_flood_electrical_safety_1792241315162.jpg', label: 'เสาไฟฟ้าใกล้ผิวน้ำ' },
-                  { url: '/src/assets/images/ubon_flood_hatsuanya_drone_1792241312972.jpg', label: 'ถนนริมน้ำมูลท่วมสูง' },
-                  { url: '/src/assets/images/ubon_flood_rescue_operations_1792241313877.jpg', label: 'เรือกู้ภัยสัญจร' },
+                  { url: electricImg, label: 'เสาไฟฟ้าใกล้ผิวน้ำ' },
+                  { url: droneImg, label: 'ถนนริมน้ำมูลท่วมสูง' },
+                  { url: rescueImg, label: 'เรือกู้ภัยสัญจร' },
                 ].map((img, idx) => (
                   <button
                     type="button"

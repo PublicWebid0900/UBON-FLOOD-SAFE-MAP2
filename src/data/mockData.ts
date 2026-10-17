@@ -1,4 +1,5 @@
 import { RiskPoint, SurveillanceZone, HazardReport, RiverM7Data } from '../types';
+import { droneImg, rescueImg, shelterImg, electricImg } from '../assets/images';
 
 export const INITIAL_RISK_POINTS: RiskPoint[] = [
   // 1. จุดเสี่ยงจากไฟฟ้า (สีฟ้า)
@@ -17,7 +18,7 @@ export const INITIAL_RISK_POINTS: RiskPoint[] = [
     addressOrZone: 'ริมซอยหาดสวนยา 2 (คุ้มริมแม่น้ำมูล)',
     contact: 'สายด่วน กฟภ. 1129 หรือ 045-321234',
     travelAdvice: 'หลีกเลี่ยงการเดินลุยน้ำบริเวณนี้ในระยะ 15 เมตร แจ้งเจ้าหน้าที่ตัดไฟทันทีหากน้ำท่วมถึงโคนเสา',
-    imageUrl: '/src/assets/images/ubon_flood_electrical_safety_1792241315162.jpg',
+    imageUrl: electricImg,
     verified: true,
     minWaterLevelTrigger: 6.2,
   },
@@ -56,7 +57,7 @@ export const INITIAL_RISK_POINTS: RiskPoint[] = [
     addressOrZone: 'แนวตลิ่งแม่น้ำมูลทิศเหนือ ชุมชนหาดสวนยา',
     contact: 'สายด่วน ปภ. 1784 หรือ 045-321151',
     travelAdvice: 'ใช้เรือท้องแบนของหน่วยกู้ภัยเท่านั้น ไม่ควรว่ายน้ำหรือลุยน้ำเด็ดขาด',
-    imageUrl: '/src/assets/images/ubon_flood_hatsuanya_drone_1792241312972.jpg',
+    imageUrl: droneImg,
     verified: true,
     minWaterLevelTrigger: 6.0,
   },
@@ -95,7 +96,7 @@ export const INITIAL_RISK_POINTS: RiskPoint[] = [
     addressOrZone: 'ชุมชนหาดสวนยา ซอย 2 คุ้มกลาง',
     contact: '081-456-7890 (ญาติ) / 045-321151 (ศูนย์กู้ชีพ)',
     travelAdvice: 'เรือกู้ภัยท้องแบนพร้อมเปลพยาบาลเข้าถึงผ่านทางน้ำซอย 2',
-    imageUrl: '/src/assets/images/ubon_flood_rescue_operations_1792241313877.jpg',
+    imageUrl: rescueImg,
     verified: true,
     minWaterLevelTrigger: 6.3,
   },
@@ -235,7 +236,7 @@ export const INITIAL_RISK_POINTS: RiskPoint[] = [
     facilities: ['ที่พักนอน 300 เตียง', 'โรงครัวพระราชทานอาหารปรุงสุก 3 มื้อ', 'ห้องสุขาเคลื่อนที่ 12 ห้อง', 'หน่วยแพทย์เคลื่อนที่', 'น้ำดื่มสะอาด', 'จุดชาร์จแบตเตอรี่โทรศัพท์'],
     operatingHours: 'เปิดตลอด 24 ชั่วโมง',
     travelAdvice: 'เดินทางจากหาดสวนยาผ่านถนนเชิงสะพานเข้าสู่ถนนประทุมเทพ ระยะทางประมาณ 700 เมตร',
-    imageUrl: '/src/assets/images/ubon_safe_shelter_center_1792241314419.jpg',
+    imageUrl: shelterImg,
     verified: true,
   },
   {
@@ -406,7 +407,7 @@ export const INITIAL_CITIZEN_REPORTS: HazardReport[] = [
     verifiedBy: 'ร.ต.อ. เอกชัย (สภ.วารินชำราบ)',
     verifiedAt: '17 ต.ค. 2569 09:15 น.',
     adminNote: 'ส่งชุดเจ็ทสกีตรวจสอบแล้ว พบน้ำท่วมจริง ติดป้ายเตือนและอัปเดตลงแผนที่เรียบร้อย',
-    imageUrl: '/src/assets/images/ubon_flood_hatsuanya_drone_1792241312972.jpg'
+    imageUrl: droneImg
   },
   {
     id: 'rep-102',
@@ -425,7 +426,7 @@ export const INITIAL_CITIZEN_REPORTS: HazardReport[] = [
     verifiedBy: 'นายช่างชัชวาล (กฟภ.วารินชำราบ)',
     verifiedAt: '17 ต.ค. 2569 12:20 น.',
     adminNote: 'กฟภ. ตัดไฟเฟสดังกล่าวชั่วคราวแล้ว และกั้นเขตอันตราย',
-    imageUrl: '/src/assets/images/ubon_flood_electrical_safety_1792241315162.jpg'
+    imageUrl: electricImg
   },
   {
     id: 'rep-103',
